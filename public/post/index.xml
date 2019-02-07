@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Posts on A Hugo website</title>
+    <link>/post/</link>
+    <description>Recent content in Posts on A Hugo website</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Mon, 04 Feb 2019 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="/post/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Setting Up My Own Gym</title>
+      <link>/2019/02/04/setting-up-my-own-gym/</link>
+      <pubDate>Mon, 04 Feb 2019 00:00:00 +0000</pubDate>
+      
+      <guid>/2019/02/04/setting-up-my-own-gym/</guid>
+      <description>Setting up my own gym - a dive into R6 classes I have recently become interested in the field of reinforcement learning and have been reading various blog posts relating to Open AI Gym. My preference for Data Science is always R, so decided to tackle one of R learning goals at the same time - R6 classes.
+Nchain I wanted to start out by making an nchain function. Within Open AI Gym, NChain is a straightforward environment with 5 states.</description>
+    </item>
+    
+  </channel>
+</rss>

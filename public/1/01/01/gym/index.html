@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Hugo 0.54.0" />
+
+
+<title>Gym - A Hugo website</title>
+<meta property="og:title" content="Gym - A Hugo website">
+
+
+  <link href='/images/favicon.ico' rel='icon' type='image/x-icon'/>
+
+
+
+  
+
+
+
+
+
+
+
+
+<link href='//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css' rel='stylesheet' type='text/css' />
+
+
+
+<link rel="stylesheet" href="/css/fonts.css" media="all">
+<link rel="stylesheet" href="/css/main.css" media="all">
+
+
+
+  </head>
+  <body>
+    <div class="wrapper">
+      <header class="header">
+        <nav class="nav">
+  <a href="/" class="nav-logo">
+    <img src="/images/logo.png"
+         width="50"
+         height="50"
+         alt="Logo">
+  </a>
+
+  <ul class="nav-links">
+    
+    <li><a href="/about/">About</a></li>
+    
+    <li><a href="https://github.com/rstudio/blogdown">GitHub</a></li>
+    
+    <li><a href="https://twitter.com/rstudio">Twitter</a></li>
+    
+  </ul>
+</nav>
+
+      </header>
+
+
+<main class="content" role="main">
+
+  <article class="article">
+    
+    <span class="article-duration">6 min read</span>
+    
+
+    <h1 class="article-title">Gym</h1>
+
+    
+    <span class="article-date">0001/01/01</span>
+    
+
+    <div class="article-content">
+      
+
+<pre><code class="language-r">knitr::opts_chunk$set(echo = TRUE)
+</code></pre>
+
+<h1 id="setting-up-my-own-gym-a-dive-into-r6-classes">Setting up my own gym - a dive into R6 classes</h1>
+
+<p>I have recently become interested in the field of reinforcement learning and have been reading various blog posts relating to <a href="https://gym.openai.com/">Open AI Gym</a>. My preference for Data Science is always R, so decided to tackle one of R learning goals at the same time - R6 classes.</p>
+
+<h3 id="nchain">Nchain</h3>
+
+<p>I wanted to start out by making an nchain function. Within Open AI Gym, NChain is a straightforward environment with 5 states.</p>
+
+<p>This is a simple function that will allow us to try reinforcement learning techniques in a later post. It needs to accept two key inputs, an action and a state.</p>
+
+<p>Actions will be either to move left or right throughout the chain, which I have denoted as being coded as 1 or 2 respectively.</p>
+
+<pre><code class="language-r">nchain &lt;- function(action, state){
+  next_state &lt;- state
+  reward &lt;- 0
+  if(state &lt; 5 &amp;&amp; action == 2){
+    next_state &lt;- next_state + 1
+  }
+  if(action == 1){
+    next_state &lt;- 1
+    reward &lt;- 2
+  }
+  if(state &gt;=5 &amp;&amp; action == 2){
+    next_state &lt;- 5
+    reward &lt;- 10
+  }
+  c(next_state, reward)
+}
+</code></pre>
+
+<p>With this function defined we can now provide an action and a state to receive the next state and reward.</p>
+
+<pre><code class="language-r">nchain(1, 1)
+nchain(2, 5)
+</code></pre>
+
+<p>BY itself this isn&rsquo;t that useful. We can easily incorporate this into loop functions, but this feels an untidy way to tackle this problem. When toying with Gym inside of python I liked the mutable property of the environments, which is perfectly tackled by using R6 classes.</p>
+
+<h3 id="r6">R6</h3>
+
+<p>When designing this function I had two key things in mind that I felt it needed to achieve:</p>
+
+<ul>
+<li>Be a mutable object (and avoid code that copies an object and reassigns it to itself)</li>
+<li>Be able to accept various environment designs (such as the NChain example above)</li>
+</ul>
+
+<p>The latter actually lended itself to allowing the former to work so we can start there.
+But, before we can start there&hellip;.</p>
+
+<pre><code class="language-r">gym_env &lt;- R6::R6Class(
+  &quot;gym&quot;,
+  
+  public = list(
+    initialize = function(game, length = 1000){
+      gym_init(self, private, game, length)
+    }
+  ),
+  
+  private = list(
+    state = 1,
+    game = NA,
+    length = NA
+  )
+)
+gym_env
+</code></pre>
+
+<p>Now we have the basics of an R6 class setup, although at the moment it does nothing useful. Note that I defined a <code>gym_init</code> function in the initialize function, which doesn&rsquo;t exist anywhere at the moment. If I try and initialize this class I will get an error noting me of my mistake.</p>
+
+<pre><code class="language-r">#gym_env$new()
+</code></pre>
+
+<p>All I want the initialized gym environment to do is to set the game object and the number of steps to run the function for. We&rsquo;d better just enforce a check that the game passed in is a function object.</p>
+
+<pre><code class="language-r">gym_init &lt;- function(self, private, game = NULL, length){
+  if(!is.function(game)){stop(&quot;Supplied game argument is not a function...&quot;, call. = F)}
+  private$game &lt;- game
+  private$length &lt;- length
+  self
+}
+</code></pre>
+
+<p>With this defined, we should be able to create a new <code>gym_env</code> object now.</p>
+
+<pre><code class="language-r">mygame &lt;- gym_env$new(game = nchain)
+mygame
+</code></pre>
+
+<p>Now that the game attribute has been set I would like to actually be able to step through the environment. To achieve this, I need to modify my class to include a new public <code>step</code> function.</p>
+
+<pre><code class="language-r">gym_env &lt;- R6::R6Class(
+  &quot;gym&quot;,
+  
+  public = list(
+    initialize = function(game, length = 1000){
+      gym_init(self, private, game, length)
+    },
+    step = function(a){
+      gym_run(self, private, a)
+    }
+  ),
+  
+  private = list(
+    state = 1,
+    game = NA,
+    length = NA
+  )
+)
+gym_env
+</code></pre>
+
+<p><code>gym_run</code> then needs to be able to take an action and run it through our <code>game</code> function, in this case nchain.</p>
+
+<pre><code class="language-r">gym_run &lt;- function(self, private, a, random){
+  private$game(a, private$state)
+}
+</code></pre>
+
+<p>With this setup, we can now use the <code>gym_env</code> to step through generic environment functions.</p>
+
+<pre><code class="language-r">mygame &lt;- gym_env$new(game = nchain)
+mygame$step(1)
+mygame$step(1)
+</code></pre>
+
+<h3 id="mutable">Mutable</h3>
+
+<p>At this point, all this object is capable of doing is running a single action through a generic game function. The real magic here is to make this object mutable so we can make multiple steps through the game and update our results as we do. To do this we first need to add a few extra objects into the private definition of our R6 class. In addition to what we have already, I would like to be able to keep track of:</p>
+
+<ul>
+<li>The total reward thus far</li>
+<li>The current reward</li>
+<li>The number of steps we have taken thus far</li>
+<li>Whether the game has completed running or not</li>
+</ul>
+
+<pre><code class="language-r">gym_env &lt;- R6::R6Class(
+  &quot;gym&quot;,
+  
+  public = list(
+    initialize = function(game, length = 1000){
+      gym_init(self, private, game, length)
+    },
+    step = function(a){
+      gym_run(self, private, a)
+    }
+  ),
+  
+  private = list(
+    state = 1,
+    total_reward = 0,
+    current_reward = 0,
+    num_steps = 0,
+    done = F,
+    game = NA,
+    length = NA
+  )
+)
+</code></pre>
+
+<p>To make use of these new objects we can simply modify the <code>gym_run</code> function to update these values as we step through the game. The magic here happens when we return the <code>self</code> object at the end of the function run, this works to modify the values of the existing object without us having to redefine it by hand.</p>
+
+<pre><code class="language-r">gym_run &lt;- function(self, private, a){
+  game_results &lt;- private$game(a, private$state)
+  private$state &lt;- game_results[1]
+  private$current_reward &lt;- game_results[2]
+  private$total_reward &lt;- private$total_reward  + game_results[2]
+  private$num_steps &lt;- private$num_steps + 1
+  self
+}
+</code></pre>
+
+<p>This time when we take two steps through the game we notice the cumulative summation of the private values.</p>
+
+<pre><code class="language-r">mygame &lt;- gym_env$new(game = nchain)
+mygame$step(1)
+mygame$step(1)
+</code></pre>
+
+<p>And just like that we can modify the values inside the <code>mygame</code> object to keep track of our progress through the environment.</p>
+
+<h3 id="resetting">Resetting</h3>
+
+<p>Another handy feature of Open AI Gym is the ability to reset the environment without having to redefine the object. This is also achieved quite easily in a similar method as above.</p>
+
+<p>First off, <code>gym_env</code> needs another public function to allow a reset.</p>
+
+<pre><code class="language-r">gym_env &lt;- R6::R6Class(
+  &quot;gym&quot;,
+  
+  public = list(
+    initialize = function(game, length = 1000){
+      gym_init(self, private, game, length)
+    },
+    step = function(a){
+      gym_run(self, private, a)
+    },
+    reset = function(){
+      gym_reset(self, private)
+    }
+  ),
+  
+  private = list(
+    state = 1,
+    total_reward = 0,
+    current_reward = 0,
+    num_steps = 0,
+    done = F,
+    game = NA,
+    length = NA
+  )
+)
+</code></pre>
+
+<p><code>gym_reset</code> then just needs to be a function to reset the values of the private objects back to an original state.</p>
+
+<pre><code class="language-r">gym_reset &lt;- function(self, private){
+  private$state &lt;- 1
+  private$total_reward &lt;- 0
+  private$current_reward &lt;- 0
+  private$done &lt;- F
+  private$num_steps &lt;- 0
+  self
+}
+</code></pre>
+
+<pre><code class="language-r">mygame &lt;- gym_env$new(game = nchain)
+mygame$step(1)
+mygame$reset()
+</code></pre>
+
+<h3 id="tidy-ups">Tidy ups</h3>
+
+<p>While all of this works, there are a few tidy ups we could make to make the whole process a little smoother. I&rsquo;m going to gloss over the finer details, but in summary I also want <code>gym_env</code> to:</p>
+
+<ul>
+<li>Have a tidyer print to the console</li>
+<li>Have a notion of whether it is complete</li>
+<li>Provide back it&rsquo;s private contents at any point</li>
+<li>Allow for random &lsquo;flipping&rsquo; of actions to allow a game to explore other environmental states</li>
+</ul>
+
+<p>You can review the full code on [Github]().</p>
+
+    </div>
+  </article>
+
+  
+
+
+</main>
+
+      <footer class="footer">
+        <ul class="footer-links">
+          <li>
+            <a href="/index.xml" type="application/rss+xml" target="_blank">RSS feed</a>
+          </li>
+          <li>
+            <a href="https://gohugo.io/" class="footer-links-kudos">Made with <img src="/images/hugo-logo.png" alt="Img link to Hugo website" width="22" height="22"></a>
+          </li>
+        </ul>
+      </footer>
+
+    </div>
+    
+
+
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+
+
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/r.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/yaml.min.js"></script>
+<script>hljs.configure({languages: []}); hljs.initHighlightingOnLoad();</script>
+
+
+
+    
+<script src="/js/math-code.js"></script>
+<script async src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+
+
+    
+  </body>
+</html>
+
